@@ -1,0 +1,36 @@
+# ==========================================
+# Datos y Datasets (Crucial para Data Science)
+# ==========================================
+# Ignora los archivos de datos en data/raw o subcarpetas para no saturar Git
+data/raw/*
+!data/raw/.gitkeep
+
+# ==========================================
+# Entornos Virtuales
+# ==========================================
+.venv/
+venv/
+ENV/
+env/
+
+# ==========================================
+# Archivos Temporales de Python
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# ==========================================
+# Archivos de Jupyter Notebooks
+# ==========================================
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# ==========================================
+# Configuración del Sistema / IDEs
+# ==========================================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
