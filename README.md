@@ -14,9 +14,11 @@ daewoo_steel_project/
 │
 ├── src/
 │   └── analisis_datos/
-│       ├── __init__.py                    <-- Módulo Python
-│       ├── ingesta.py                     <-- Módulo para cargar/gestionar el dataset
-│       └── estadisticos.py                <-- Módulo de cálculos y gráficos
+│       ├── __init__.py                    <-- Inicializador del paquete Python
+│       ├── ingesta.py                     <-- Carga y validación inicial del dataset
+│       ├── estadisticos.py                <-- Métricas descriptivas (media, skew, kurt, IQR)
+│       ├── graficos.py                    <-- Generación modular de Histogramas y Boxplots
+│       └── categoricas.py                 <-- Frecuencias absolutas y proporciones de categoríales
 │
 ├── README.md
 └── requirements.txt
