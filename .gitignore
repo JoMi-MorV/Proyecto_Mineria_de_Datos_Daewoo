@@ -2,7 +2,6 @@
 # Datos y Datasets (Crucial para Data Science)
 # ==========================================
 # Ignora los archivos de datos en data/raw o subcarpetas para no saturar Git
-data/raw/*
 !data/raw/.gitkeep
 
 # ==========================================

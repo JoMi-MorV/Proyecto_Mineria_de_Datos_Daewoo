@@ -1,0 +1,8 @@
+Variable,Q1 (25%),Mediana (50%),Q3 (75%),IQR,Límite Inferior,Límite Superior,N° Outliers,% Outliers
+Usage_kWh,3.2,4.57,51.24,48.04,-68.86,123.29,328,0.94%
+Lagging_Current_Reactive.Power_kVarh,2.3,5.0,22.64,20.34,-28.21,53.15,1059,3.02%
+Leading_Current_Reactive_Power_kVarh,0.0,0.0,2.09,2.09,-3.14,5.22,7759,22.14%
+CO2(tCO2),0.0,0.0,0.02,0.02,-0.03,0.05,437,1.25%
+Lagging_Current_Power_Factor,63.32,87.96,99.02,35.7,9.77,152.58,1,0.00%
+Leading_Current_Power_Factor,99.7,100.0,100.0,0.3,99.25,100.45,8327,23.76%
+NSM,21375.0,42750.0,64125.0,42750.0,-42750.0,128250.0,0,0.00%

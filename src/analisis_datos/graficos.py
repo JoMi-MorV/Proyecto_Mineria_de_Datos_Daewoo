@@ -8,35 +8,60 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-
-def graficar_distribucion_y_boxplots(
-    df: pd.DataFrame, variables: list[str], guardar: bool = False
+def graficar_distribucion_individual(
+    df: pd.DataFrame, variables: list[str] = None, guardar: bool = False
 ) -> None:
-    """Genera histogramas y boxplots para visualizar asimetría y outliers."""
+    """
+    Genera y muestra de manera INDIVIDUAL un gráfico de Histograma + KDE 
+    para cada variable cuantitativa enviada en la lista.
+    """
     sns.set_theme(style="whitegrid")
 
+    # Si no se especifica lista, se procesan las 7 variables cuantitativas del proyecto
+    if variables is None:
+        variables = [
+            "Usage_kWh",
+            "Lagging_Current_Reactive.Power_kVarh",
+            "Leading_Current_Reactive_Power_kVarh",
+            "CO2(tCO2)",
+            "Lagging_Current_Power_Factor",
+            "Leading_Current_Power_Factor",
+            "NSM"
+        ]
+
+    # Filtrar solo las columnas que existan en el DataFrame
+    variables = [col for col in variables if col in df.columns]
+
     for var in variables:
-        fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+        fig, ax = plt.subplots(figsize=(8, 5))
 
-        # 1. Histograma + KDE
+        # 1. Histograma (barras en celeste con borde negro)
         sns.histplot(
-            df[var], kde=True, ax=axes[0], color="skyblue", edgecolor="black"
+            df[var], kde=False, ax=ax, color="skyblue", edgecolor="black", bins=30
         )
-        axes[0].set_title(f"Distribución e Histograma: {var}", fontsize=12)
-        axes[0].set_xlabel(var)
-        axes[0].set_ylabel("Frecuencia")
 
-        # 2. Diagrama de Caja (Boxplot)
-        sns.boxplot(x=df[var], ax=axes[1], color="salmon")
-        axes[1].set_title(f"Diagrama de Caja (Outliers): {var}", fontsize=12)
-        axes[1].set_xlabel(var)
+        # 2. Curva KDE superpuesta (línea roja independiente)
+        ax2 = ax.twinx()
+        sns.kdeplot(
+            df[var], ax=ax2, color="red", linewidth=2
+        )
+        ax2.grid(False)      # Desactiva la malla secundaria
+        ax2.set_ylabel("")   # Elimina etiqueta del eje secundario
+        ax2.set_yticks([])   # Oculta las marcas numéricas de la densidad
+
+        # Formato del gráfico
+        ax.set_title(f"Distribución e Histograma: {var}", fontsize=13, fontweight="bold")
+        ax.set_xlabel(var, fontsize=11)
+        ax.set_ylabel("Frecuencia (N° Registros)", fontsize=11)
 
         plt.tight_layout()
 
+        # Guardado en alta resolución si guardar=True
         if guardar:
-            ruta_img = Path(f"../notebooks/imagenes/{var}_distribucion.png")
+            ruta_img = Path(f"../notebooks/imagenes/{var}_histograma_kde.png")
             ruta_img.parent.mkdir(parents=True, exist_ok=True)
-            plt.savefig(ruta_img, dpi=300)
+            plt.savefig(ruta_img, dpi=300, bbox_inches="tight")
+            print(f"✓ Gráfica guardada: {ruta_img}")
 
         plt.show()
 
