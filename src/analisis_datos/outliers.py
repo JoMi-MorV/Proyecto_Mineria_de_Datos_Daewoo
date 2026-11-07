@@ -1,7 +1,5 @@
-import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import seaborn as sns
 from pathlib import Path
 
 
@@ -87,49 +85,6 @@ def generar_tabla_iqr(df, variables_num):
         })
 
     return pd.DataFrame(resumen_iqr)
-
-def graficar_boxplots(df, variables_num, titulos, colores, nombre_figura=None):
-    """Genera un panel ampliado de subplots tipo boxplot para variables cuantitativas,
-
-    asegurando alta visibilidad de los outliers estadísticos.
-    """
-    sns.set_theme(style='whitegrid', palette='muted')
-
-    # Aumentamos el tamaño general para que cada gráfico sea amplio y claro (ancho: 16, alto: 22)
-    fig, axes = plt.subplots(nrows=4, ncols=2, figsize=(16, 22))
-    axes = axes.flatten()
-
-    for i, var in enumerate(variables_num):
-        sns.boxplot(
-            x=df[var],
-            ax=axes[i],
-            color=colores[i],
-            fliersize=3.5,  # Tamaños de los puntos atípicos
-            linewidth=1.3,
-            flierprops=dict(
-                marker='o',
-                markerfacecolor='#d62728',  # Rojo destacado para visualización clara
-                markeredgecolor='#800000',  # Borde oscuro para que no se pierdan
-                alpha=0.6,  # Opacidad visible
-            ),
-        )
-
-        axes[i].set_title(
-            f'Boxplot: {titulos[i]}', fontsize=13, fontweight='bold', pad=10
-        )
-        axes[i].set_xlabel('')
-        axes[i].tick_params(axis='x', labelsize=11)
-
-    # Eliminar la octava celda libre del panel
-    fig.delaxes(axes[7])
-
-    plt.tight_layout(pad=3.0)
-
-    # Guardar en alta definición si se especifica un nombre de archivo
-    if nombre_figura:
-        plt.savefig(nombre_figura, dpi=300, bbox_inches='tight')
-
-    plt.show()
 
 def auditar_lagging_pf_critico(df, umbral_pf=40.0):
     """Filtra e inspecciona las lecturas de Lagging_Current_Power_Factor por debajo

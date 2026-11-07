@@ -3,13 +3,51 @@
 Proyecto Daewoo Steel Co.
 """
 
-from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
+def graficar_boxplots(df, variables_num, titulos, colores):
+    """Genera un panel ampliado de subplots tipo boxplot para variables cuantitativas,
+
+    asegurando alta visibilidad de los outliers estadísticos.
+    """
+    sns.set_theme(style='whitegrid', palette='muted')
+
+    # Aumentamos el tamaño general para que cada gráfico sea amplio y claro (ancho: 16, alto: 22)
+    fig, axes = plt.subplots(nrows=4, ncols=2, figsize=(16, 22))
+    axes = axes.flatten()
+
+    for i, var in enumerate(variables_num):
+        sns.boxplot(
+            x=df[var],
+            ax=axes[i],
+            color=colores[i],
+            fliersize=3.5,  # Tamaños de los puntos atípicos
+            linewidth=1.3,
+            flierprops=dict(
+                marker='o',
+                markerfacecolor='#d62728',  # Rojo destacado para visualización clara
+                markeredgecolor='#800000',  # Borde oscuro para que no se pierdan
+                alpha=0.6,  # Opacidad visible
+            ),
+        )
+
+        axes[i].set_title(
+            f'Boxplot: {titulos[i]}', fontsize=13, fontweight='bold', pad=10
+        )
+        axes[i].set_xlabel('')
+        axes[i].tick_params(axis='x', labelsize=11)
+
+    # Eliminar la octava celda libre del panel
+    fig.delaxes(axes[7])
+
+    plt.tight_layout(pad=3.0)
+
+    plt.show()
+
 def graficar_distribucion_individual(
-    df: pd.DataFrame, variables: list[str] = None, guardar: bool = False
+    df: pd.DataFrame, variables: list[str] = None
 ) -> None:
     """
     Genera y muestra de manera INDIVIDUAL un gráfico de Histograma + KDE 
@@ -56,16 +94,9 @@ def graficar_distribucion_individual(
 
         plt.tight_layout()
 
-        # Guardado en alta resolución si guardar=True
-        if guardar:
-            ruta_img = Path(f"../notebooks/imagenes/{var}_histograma_kde.png")
-            ruta_img.parent.mkdir(parents=True, exist_ok=True)
-            plt.savefig(ruta_img, dpi=300, bbox_inches="tight")
-            print(f"✓ Gráfica guardada: {ruta_img}")
-
         plt.show()
 
-def graficar_distribuciones_categoricas(df, columnas=None, guardar_path=None):
+def graficar_distribuciones_categoricas(df, columnas=None):
     """
     Genera gráficos de barras con frecuencias relativas (%) para variables categóricas.
     
@@ -75,8 +106,6 @@ def graficar_distribuciones_categoricas(df, columnas=None, guardar_path=None):
         Dataset con los datos de la planta.
     columnas : list, optional
         Lista de variables categóricas a graficar.
-    guardar_path : str, optional
-        Ruta para guardar la figura generada.
     """
     if columnas is None:
         columnas = ["WeekStatus", "Day_of_week", "Load_Type"]
@@ -121,8 +150,4 @@ def graficar_distribuciones_categoricas(df, columnas=None, guardar_path=None):
                             
     plt.tight_layout()
     
-    if guardar_path:
-        plt.savefig(guardar_path, dpi=300, bbox_inches='tight')
-        print(f" Gráfico guardado exitosamente en: {guardar_path}")
-        
     plt.show()
