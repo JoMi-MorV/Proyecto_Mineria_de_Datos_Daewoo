@@ -5,25 +5,29 @@ Este proyecto analiza datos de consumo energético de la industria del acero med
 # Estructura de archivos
 
 Proyecto_Mineria_de_Datos_Daewoo/
-│
 ├── data/
 │   ├── raw/
-│   │   └── Steel_industry_data.csv        # Dataset original
+│   │   └── Steel_industry_data.csv          # Dataset original
 │   └── clean/
-│       └── Steel_industry_clean.csv       # Dataset exportado tras el tratamiento
-│
+│       └── Steel_industry_clean.csv         # Dataset limpio para el análisis
 ├── notebooks/
-│   └── Tarea_2.ipynb     # Análisis exploratorio y ejecución del flujo
-│
+│   ├── Tarea_2.ipynb                        # Análisis exploratorio y preparación de datos
+│   └── Tarea_3.ipynb                        # Análisis de clustering 
 ├── src/
-│   └── analisis_datos/
-│       ├── __init__.py                    # Inicializador del paquete
-│       ├── ingesta.py                     # Localiza la raíz y carga el CSV original
-│       ├── estadistico.py                 # Estadísticos descriptivos y agrupación por rangos
-│       ├── categoricas.py                 # Frecuencias de variables categóricas
-│       ├── graficos.py                    # Histogramas, KDE y gráficos de variables categóricas
-│       └── outliers.py                    # Nulos, IQR, boxplots, auditorías e imputación
+│   ├── analisis_datos/
+│   │   ├── __init__.py
+│   │   ├── categoricas.py                   # Frecuencias de variables categóricas
+│   │   ├── estadistico.py                   # Estadísticos descriptivos
+│   │   ├── graficos.py                      # Gráficos exploratorios
+│   │   ├── ingesta.py                       # Localización de la raíz y carga de datos
+│   │   └── outliers.py                      # Detección, auditoría e imputación de atípicos
+│   └── clustering/
+│       ├── __init__.py
+│       ├── knn.py                            # Evaluación de modelos KNN y métricas
+│       ├── preparacion.py                    # Preparación de datos para clasificación
+│       └── jerarquico.py
 │
+├── .gitignore
 ├── README.md
 └── requirements.txt
 
