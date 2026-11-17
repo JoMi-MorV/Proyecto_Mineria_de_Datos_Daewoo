@@ -1,4 +1,4 @@
-"""Redes Bayesianas para el nivel de carga de la planta (Tarea 4 – DAEWOO Steel Co.).
+"""Redes Bayesianas para pronosticar el nivel de carga (Tarea 4 – DAEWOO Steel Co.).
 
 Idea en simple
 --------------
@@ -6,9 +6,10 @@ Una red bayesiana es un diagrama de flechas entre variables. Cada flecha dice
 "esta variable influye directamente en esa otra", y cada variable tiene una tabla
 de probabilidades que depende de las variables que apuntan hacia ella (sus
 "padres"). Con esa red se puede responder preguntas de probabilidad, por ejemplo:
-"si es de tarde, día hábil y el factor de potencia es bajo, ¿qué probabilidad hay
-de carga máxima?". Es el único modelo de la tarea que entrega probabilidades
-explícitas y que funciona aunque solo se conozca parte de la información.
+"si dentro de una hora es de tarde, día hábil y hoy la carga es media y el consumo
+viene subiendo, ¿qué probabilidad hay de carga máxima?". Es el único modelo de la
+tarea que entrega probabilidades explícitas y que funciona aunque solo se conozca
+parte de la información.
 
 Pasos de este módulo
 --------------------
@@ -19,11 +20,11 @@ Pasos de este módulo
    definida con criterio del problema y una aprendida de los datos (Hill Climbing
    con puntaje BIC).
 3. Estimar las tablas de probabilidad con los datos de entrenamiento.
-4. Predecir `Load_Type` y evaluar con entrenamiento y prueba.
+4. Pronosticar `Carga_futura` y evaluar con entrenamiento y prueba.
 5. Hacer consultas de probabilidad con evidencia parcial.
 
 Nota técnica: está implementada solo con numpy y pandas (sin pgmpy), con
-inferencia exacta por enumeración, que es suficiente con 7 variables.
+inferencia exacta por enumeración, que es suficiente con 10 variables discretas.
 
 Uso típico (desde el notebook)
 ------------------------------
@@ -42,36 +43,44 @@ from sklearn.metrics import (ConfusionMatrixDisplay, accuracy_score,
 
 ORDEN_CARGA = ["Light_Load", "Medium_Load", "Maximum_Load"]
 
-# Nodos de la red (el primero es la variable a predecir)
-NODO_CLASE = "Load_Type"
-N_HORA = "Franja_horaria"
-N_DIA = "Tipo_dia"
+# Nodos de la red (el primero es la variable a pronosticar)
+NODO_CLASE = "Carga_futura"
+N_HORA = "Franja_horaria_destino"
+N_DIA = "Tipo_dia_destino"
+N_CARGA = "Carga_actual"
+N_CONS = "Consumo_actual"
+N_C1H = "Consumo_hace_1h"
+N_C24H = "Consumo_hace_24h"
+N_VAR = "Variacion_1h"
 N_LAGK = "Reactiva_inductiva"
-N_LEADK = "Reactiva_capacitiva"
 N_LAGPF = "FP_inductivo"
-N_LEADPF = "FP_capacitivo"
-NODOS = [NODO_CLASE, N_HORA, N_DIA, N_LAGK, N_LEADK, N_LAGPF, N_LEADPF]
+NODOS = [NODO_CLASE, N_HORA, N_DIA, N_CARGA, N_CONS, N_C1H, N_C24H, N_VAR,
+         N_LAGK, N_LAGPF]
 
 # Qué columna numérica origina cada nodo continuo
 COLUMNAS_CONTINUAS = {
+    N_CONS: "Consumo_t",
+    N_C1H: "Consumo_t-1h",
+    N_C24H: "Consumo_t-24h",
+    N_VAR: "Variacion_1h",
     N_LAGK: "Lagging_Current_Reactive.Power_kVarh",
-    N_LEADK: "Leading_Current_Reactive_Power_kVarh",
     N_LAGPF: "Lagging_Current_Power_Factor",
-    N_LEADPF: "Leading_Current_Power_Factor",
 }
 FRANJAS = ["Madrugada", "Mañana", "Tarde", "Noche"]   # 0-6, 6-12, 12-18, 18-24 h
 DIAS = ["Hábil", "Fin de semana"]
 
 # Estructuras con flechas definidas a mano (padre, hijo)
 ESTRUCTURAS_FIJAS = {
-    # Naive Bayes: el nivel de carga "produce" todas las demás variables
+    # Naive Bayes: la carga futura "produce" todas las demás variables
     "naive_bayes": [(NODO_CLASE, n) for n in NODOS[1:]],
-    # Experta: el horario y el tipo de día determinan la carga; la carga determina las
-    # mediciones eléctricas; y cada factor de potencia depende de su potencia reactiva.
-    "experta": [(N_HORA, NODO_CLASE), (N_DIA, NODO_CLASE),
-                (NODO_CLASE, N_LAGK), (NODO_CLASE, N_LEADK),
-                (NODO_CLASE, N_LAGPF), (NODO_CLASE, N_LEADPF),
-                (N_LAGK, N_LAGPF), (N_LEADK, N_LEADPF)],
+    # Experta: el calendario del destino, la carga actual, la tendencia y el consumo de
+    # ayer influyen en la carga futura; el consumo actual determina la carga actual y,
+    # con el de hace 1 h, la variación; las mediciones eléctricas son efecto de la
+    # carga actual.
+    "experta": [(N_HORA, NODO_CLASE), (N_DIA, NODO_CLASE), (N_CARGA, NODO_CLASE),
+                (N_VAR, NODO_CLASE), (N_C24H, NODO_CLASE),
+                (N_CONS, N_CARGA), (N_CONS, N_VAR), (N_C1H, N_VAR),
+                (N_CARGA, N_LAGK), (N_CARGA, N_LAGPF)],
 }
 
 _NOMBRES_NIVELES = {
@@ -79,10 +88,17 @@ _NOMBRES_NIVELES = {
     4: ["Muy bajo", "Bajo", "Alto", "Muy alto"],
     5: ["Muy bajo", "Bajo", "Medio", "Alto", "Muy alto"],
 }
+_NOMBRES_VARIACION = {
+    1: ["Único"], 2: ["Cae", "Sube"], 3: ["Cae", "Estable", "Sube"],
+    4: ["Cae mucho", "Cae", "Sube", "Sube mucho"],
+    5: ["Cae mucho", "Cae", "Estable", "Sube", "Sube mucho"],
+}
 _NOMBRES_VISIBLES = {
-    NODO_CLASE: "Load_Type", N_HORA: "Franja\nhoraria", N_DIA: "Tipo\nde día",
-    N_LAGK: "Reactiva\ninductiva", N_LEADK: "Reactiva\ncapacitiva",
-    N_LAGPF: "Factor pot.\ninductivo", N_LEADPF: "Factor pot.\ncapacitivo",
+    NODO_CLASE: "Carga\nfutura", N_HORA: "Franja\nhoraria\ndestino",
+    N_DIA: "Tipo de día\ndestino", N_CARGA: "Carga\nactual",
+    N_CONS: "Consumo\nactual", N_C1H: "Consumo\nhace 1 h",
+    N_C24H: "Consumo\nhace 24 h", N_VAR: "Variación\n1 h",
+    N_LAGK: "Reactiva\ninductiva", N_LAGPF: "Factor pot.\ninductivo",
 }
 
 
@@ -90,19 +106,17 @@ _NOMBRES_VISIBLES = {
 # 1. Utilidades de datos
 # ---------------------------------------------------------------------------
 def hora_del_dia(X) -> pd.Series:
-    """Hora del día (0 a 24) a partir de NSM_sin y NSM_cos (o de NSM si existe).
+    """Hora del día (0 a 24) del instante pronosticado, a partir de su seno y coseno.
 
-    Conviene verificarla contra los datos originales: debe coincidir con
-    `df.loc[X.index, "NSM"] / 3600`.
+    Conviene verificarla contra la fecha del instante pronosticado: deben coincidir.
     """
-    if "NSM" in X.columns:
-        return X["NSM"] / 3600.0
-    ang = np.arctan2(X["NSM_sin"].to_numpy(), X["NSM_cos"].to_numpy()) % (2 * np.pi)
+    ang = np.arctan2(X["Destino_NSM_sin"].to_numpy(), X["Destino_NSM_cos"].to_numpy()) % (2 * np.pi)
     return pd.Series(ang / (2 * np.pi) * 24.0, index=X.index, name="hora")
 
 
-def _nombres_niveles(k: int):
-    return _NOMBRES_NIVELES.get(k, [f"Nivel {i + 1}" for i in range(k)])
+def _nombres_niveles(k: int, nodo=None):
+    tabla = _NOMBRES_VARIACION if nodo == N_VAR else _NOMBRES_NIVELES
+    return tabla.get(k, [f"Nivel {i + 1}" for i in range(k)])
 
 
 # ---------------------------------------------------------------------------
@@ -143,9 +157,12 @@ def _hay_camino(padres, origen, destino):
     return False
 
 
-def _hill_climbing(D, card, max_indegree, prohibidos_destino):
+def _hill_climbing(D, card, max_indegree, prohibidos_destino, sin_hijos=frozenset()):
     """Parte sin flechas y, en cada paso, aplica la mejor jugada (agregar, quitar o
-    invertir una flecha) mientras el puntaje BIC siga mejorando. Evita ciclos."""
+    invertir una flecha) mientras el puntaje BIC siga mejorando. Evita ciclos.
+
+    prohibidos_destino: nodos que no pueden recibir flechas (el calendario).
+    sin_hijos: nodos que no pueden causar a otros (la carga futura)."""
     n_nodos = len(card)
     padres = {i: set() for i in range(n_nodos)}
     cache = {}
@@ -165,7 +182,8 @@ def _hill_climbing(D, card, max_indegree, prohibidos_destino):
                 actual_b = pts(b, padres[b])
                 if a not in padres[b]:
                     # Agregar a -> b
-                    if (b in prohibidos_destino or len(padres[b]) >= max_indegree
+                    if (b in prohibidos_destino or a in sin_hijos
+                            or len(padres[b]) >= max_indegree
                             or _hay_camino(padres, b, a)):
                         continue
                     delta = pts(b, padres[b] | {a}) - actual_b
@@ -177,7 +195,8 @@ def _hill_climbing(D, card, max_indegree, prohibidos_destino):
                     if delta > mejor_delta:
                         mejor_delta, mejor_op = delta, ("quitar", a, b)
                     # Invertir a -> b (queda b -> a)
-                    if a in prohibidos_destino or len(padres[a]) >= max_indegree:
+                    if (a in prohibidos_destino or b in sin_hijos
+                            or len(padres[a]) >= max_indegree):
                         continue
                     sin = {k: (v - {a} if k == b else set(v)) for k, v in padres.items()}
                     if _hay_camino(sin, a, b):
@@ -203,10 +222,10 @@ def _hill_climbing(D, card, max_indegree, prohibidos_destino):
 # 3. La red bayesiana
 # ---------------------------------------------------------------------------
 class RedBayesiana:
-    """Red bayesiana discreta para predecir `Load_Type`.
+    """Red bayesiana discreta para pronosticar `Carga_futura`.
 
-    Recibe las mismas variables numéricas que los demás modelos (con NSM_sin y
-    NSM_cos) y se encarga de discretizarlas internamente con cortes calculados
+    Recibe las mismas variables que los demás modelos (con Destino_NSM_sin y
+    Destino_NSM_cos y Carga_actual codificada 0/1/2) y se encarga de discretizarlas internamente con cortes calculados
     solo con los datos de entrenamiento. Tiene `fit`, `predict` y `predict_proba`
     como los modelos de scikit-learn.
 
@@ -215,19 +234,21 @@ class RedBayesiana:
     n_bins: niveles en que se divide cada variable continua (por cuantiles).
     max_indegree: máximo de padres por nodo en la estructura aprendida.
     prohibidos_destino: nodos que no pueden recibir flechas al aprender la
-                estructura (el horario y el tipo de día no son "causados" por la carga).
+                estructura (el calendario del destino no es "causado" por nada).
+    sin_hijos: nodos que no pueden apuntar a otros (la carga futura no puede causar
+                lo que ocurre ahora).
     alpha: suavizado de las probabilidades (evita probabilidades exactamente 0).
-    valor_finde: valor de WeekStatus_bin que significa fin de semana. "auto" toma
-                el menos frecuente (los fines de semana son ~2/7 de los días).
+    valor_finde: valor de Destino_WeekStatus_bin que significa fin de semana (1).
     """
 
-    def __init__(self, estructura="aprendida", n_bins: int = 3, max_indegree: int = 3,
-                 prohibidos_destino=(N_HORA, N_DIA), alpha: float = 1.0,
-                 valor_finde="auto"):
+    def __init__(self, estructura="aprendida", n_bins: int = 3, max_indegree: int = 4,
+                 prohibidos_destino=(N_HORA, N_DIA), sin_hijos=(NODO_CLASE,),
+                 alpha: float = 1.0, valor_finde=1):
         self.estructura = estructura
         self.n_bins = n_bins
         self.max_indegree = max_indegree
         self.prohibidos_destino = tuple(prohibidos_destino)
+        self.sin_hijos = tuple(sin_hijos)
         self.alpha = alpha
         self.valor_finde = valor_finde
 
@@ -237,17 +258,14 @@ class RedBayesiana:
         for nodo, col in COLUMNAS_CONTINUAS.items():
             qs = np.linspace(0, 1, self.n_bins + 1)[1:-1]
             self.cortes_[nodo] = np.unique(np.quantile(X[col].to_numpy(float), qs))
-        if self.valor_finde == "auto":
-            vc = X["WeekStatus_bin"].value_counts()
-            self.valor_finde_ = vc.idxmin() if len(vc) > 1 else 1
-        else:
-            self.valor_finde_ = self.valor_finde
+        self.valor_finde_ = self.valor_finde
 
     def _discretizar(self, X) -> pd.DataFrame:
         d = pd.DataFrame(index=X.index)
         hora = hora_del_dia(X).to_numpy()
         d[N_HORA] = np.digitize(hora % 24, [6, 12, 18])
-        d[N_DIA] = (X["WeekStatus_bin"].to_numpy() == self.valor_finde_).astype(int)
+        d[N_DIA] = (X["Destino_WeekStatus_bin"].to_numpy() == self.valor_finde_).astype(int)
+        d[N_CARGA] = X["Carga_actual"].to_numpy().astype(int)
         for nodo, col in COLUMNAS_CONTINUAS.items():
             d[nodo] = np.searchsorted(self.cortes_[nodo], X[col].to_numpy(float), side="left")
         return d[NODOS[1:]]
@@ -265,15 +283,17 @@ class RedBayesiana:
         D = np.column_stack([y.map(mapa).to_numpy()] +
                             [Xd[n].to_numpy() for n in NODOS[1:]]).astype(int)
         self.estados_ = {NODO_CLASE: list(self.clases_), N_HORA: list(FRANJAS),
-                         N_DIA: list(DIAS)}
+                         N_DIA: list(DIAS), N_CARGA: list(ORDEN_CARGA)}
         for nodo in COLUMNAS_CONTINUAS:
-            self.estados_[nodo] = _nombres_niveles(len(self.cortes_[nodo]) + 1)
+            self.estados_[nodo] = _nombres_niveles(len(self.cortes_[nodo]) + 1, nodo)
         self.card_ = [len(self.estados_[n]) for n in NODOS]
 
         # Estructura
         if isinstance(self.estructura, str) and self.estructura == "aprendida":
             prohibidos = {NODOS.index(n) for n in self.prohibidos_destino}
-            self.padres_ = _hill_climbing(D, self.card_, self.max_indegree, prohibidos)
+            sin_hijos = {NODOS.index(n) for n in self.sin_hijos}
+            self.padres_ = _hill_climbing(D, self.card_, self.max_indegree, prohibidos,
+                                          sin_hijos)
         else:
             arcos = ESTRUCTURAS_FIJAS[self.estructura] if isinstance(self.estructura, str) \
                 else self.estructura
@@ -377,10 +397,12 @@ class RedBayesiana:
 # ---------------------------------------------------------------------------
 def tabla_cortes(red: RedBayesiana) -> pd.DataFrame:
     """Cómo se discretizó cada variable: niveles y valores de corte."""
-    filas = [{"Variable": N_HORA, "Origen": "NSM_sin / NSM_cos",
+    filas = [{"Variable": N_HORA, "Origen": "Destino_NSM_sin / Destino_NSM_cos",
               "Niveles": "Madrugada 0-6 h | Mañana 6-12 h | Tarde 12-18 h | Noche 18-24 h"},
-             {"Variable": N_DIA, "Origen": "WeekStatus_bin",
-              "Niveles": f"Hábil | Fin de semana (valor {red.valor_finde_})"}]
+             {"Variable": N_DIA, "Origen": "Destino_WeekStatus_bin",
+              "Niveles": f"Hábil | Fin de semana (valor {red.valor_finde_})"},
+             {"Variable": N_CARGA, "Origen": "Carga_actual",
+              "Niveles": "Light_Load | Medium_Load | Maximum_Load"}]
     for nodo, col in COLUMNAS_CONTINUAS.items():
         cortes, nombres = red.cortes_[nodo], red.estados_[nodo]
         partes = []
@@ -437,7 +459,7 @@ def evaluar_modelo(modelo, X_tr, X_te, y_tr, y_te, clase_critica="Maximum_Load")
     return metricas, pred_te
 
 
-def comparar_estructuras(X_tr, X_te, y_tr, y_te, n_bins: int = 3, max_indegree: int = 3,
+def comparar_estructuras(X_tr, X_te, y_tr, y_te, n_bins: int = 3, max_indegree: int = 4,
                          alpha: float = 1.0, clase_critica="Maximum_Load"):
     """Entrena las tres estructuras y las compara en las mismas condiciones.
 
@@ -496,7 +518,9 @@ def graficar_red(red: RedBayesiana, titulo: str = "", ax=None):
     for niv in sorted(set(nivel.values())):
         miembros = [j for j in range(len(NODOS)) if nivel[j] == niv]
         for k, j in enumerate(miembros):
-            pos[j] = ((k - (len(miembros) - 1) / 2) * 2.0, -niv * 1.9)
+            # Si hay muchos nodos en un mismo nivel, se alternan en altura para que no se tapen
+            desfase = (0.55 if k % 2 else -0.55) if len(miembros) > 5 else 0.0
+            pos[j] = ((k - (len(miembros) - 1) / 2) * 2.0, -niv * 1.9 + desfase)
     for h, ps in red.padres_.items():
         for p in ps:
             ax.annotate("", xy=pos[h], xytext=pos[p],
